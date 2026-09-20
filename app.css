@@ -1,0 +1,374 @@
+/* app.css — Glide control surface.
+   Design system: deep-ink surface, teal "glide" motion, amber "dwell/commit".
+   Body type Atkinson Hyperlegible (Braille Institute, built for low vision),
+   display type Bricolage Grotesque. High contrast, large targets. */
+
+:root {
+  color-scheme: dark;
+  --ink-900: #0E1116;   /* app background */
+  --ink-800: #151A22;   /* panels */
+  --ink-700: #1E2530;   /* raised controls */
+  --ink-600: #2A3340;   /* borders */
+  --text:    #EDF1F7;   /* primary text */
+  --muted:   #9BA8BC;   /* secondary text */
+  --teal:    #38E0C8;   /* motion / cursor / glide */
+  --teal-dim:#1C7A6E;
+  --amber:   #FFB020;   /* dwell fill / commit */
+  --amber-dim:#7A5410;
+  --danger:  #FF6B6B;
+  --focus:   #7FB2FF;
+  --r-lg: 20px;
+  --r-md: 14px;
+  --r-sm: 10px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--ink-900);
+  color: var(--text);
+  font-family: 'Atkinson Hyperlegible', system-ui, sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
+  overflow: hidden;
+}
+
+h1, h2, h3, .display {
+  font-family: 'Bricolage Grotesque', 'Atkinson Hyperlegible', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Top status bar ---------- */
+.topbar {
+  position: fixed; inset: 0 0 auto 0; height: 64px; z-index: 40;
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 20px;
+  background: linear-gradient(var(--ink-800), rgba(21,26,34,0.86));
+  border-bottom: 1px solid var(--ink-600);
+  backdrop-filter: blur(6px);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size: 20px; }
+.brand .dot { width: 14px; height: 14px; border-radius: 50%;
+  background: radial-gradient(circle at 30% 30%, var(--teal), var(--teal-dim));
+  box-shadow: 0 0 14px var(--teal); }
+.status-chip {
+  margin-left: 8px; padding: 6px 12px; border-radius: 999px;
+  font-size: 14px; color: var(--muted); background: var(--ink-700);
+  border: 1px solid var(--ink-600); display:flex; align-items:center; gap:8px;
+}
+.status-chip .led { width:9px; height:9px; border-radius:50%; background:var(--muted); }
+.status-chip.live .led { background: var(--teal); box-shadow:0 0 8px var(--teal); }
+.status-chip.demo .led { background: var(--amber); box-shadow:0 0 8px var(--amber); }
+.topbar .spacer { flex: 1; }
+
+/* Preview of the camera (small, corner). Mirrored to feel natural. */
+.cam-preview {
+  position: fixed; right: 16px; bottom: 16px; width: 180px; height: 135px;
+  border-radius: var(--r-md); overflow: hidden; z-index: 35;
+  border: 1px solid var(--ink-600); background: #000;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.5); opacity: 0.9;
+  /* purely a feedback view — never swallow dwell hit-testing for controls that
+     sit beneath it (e.g. the wide delete key in the keyboard's bottom-right). */
+  pointer-events: none;
+}
+.cam-preview video { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
+.cam-preview.hidden { display: none; }
+.cam-preview .track-dot {
+  position:absolute; width:12px; height:12px; margin:-6px 0 0 -6px;
+  border-radius:50%; background:var(--teal); box-shadow:0 0 10px var(--teal);
+  transition: left .05s linear, top .05s linear;
+}
+
+/* ---------- Main workspace ---------- */
+.stage { position: fixed; inset: 64px 0 0 0; padding: 22px; overflow: hidden; }
+
+/* The board view is sized to fit the stage, but Settings has far more content
+   than fits (sliders, switches, voice picker, history). The stage itself stays
+   overflow:hidden (so the hands-free board never scrolls unexpectedly); instead
+   the Settings panel gets its OWN scroll so every control is reachable. */
+#settingsView {
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;   /* momentum scroll on touch */
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-600) transparent;
+  padding-bottom: 40px;                /* breathing room past the last item */
+}
+#settingsView::-webkit-scrollbar { width: 12px; }
+#settingsView::-webkit-scrollbar-thumb {
+  background: var(--ink-600); border-radius: 8px; border: 3px solid var(--ink-800);
+}
+
+/* The board is normally sized to fit the stage, but on a short/zoomed viewport
+   (or with switch-scanning's extra SELECT bar) the keyboard's bottom row can be
+   clipped by the stage's overflow:hidden with no way to reach it. Give it the
+   same scroll floor as Settings so mouse/zoom users can always reach delete.
+   (Hands-free-only users rely on dwell-to-scroll edge zones — see app.js.) */
+#boardView {
+  max-height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ink-600) transparent;
+}
+#boardView::-webkit-scrollbar { width: 12px; }
+#boardView::-webkit-scrollbar-thumb {
+  background: var(--ink-600); border-radius: 8px; border: 3px solid var(--ink-800);
+}
+/* When the camera preview is on it floats over the bottom-right corner; reserve
+   room so the keyboard's delete key / a corner phrase tile is never hidden under
+   it. (body.cam-on is toggled by app.js when the live preview is shown.) */
+body.cam-on #boardView { padding-bottom: 156px; }
+body.cam-on #settingsView { padding-bottom: 172px; }
+
+.panel {
+  background: var(--ink-800); border: 1px solid var(--ink-600);
+  border-radius: var(--r-lg); padding: 20px;
+}
+
+.hint { color: var(--muted); font-size: 15px; }
+
+/* Sentence output bar */
+.say-bar {
+  display: flex; gap: 14px; align-items: stretch; margin-bottom: 16px;
+}
+.say-text {
+  flex: 1; min-width: 0; min-height: 64px; display:flex; align-items:center;
+  justify-content: flex-start;
+  font-size: 26px; padding: 12px 18px; border-radius: var(--r-md);
+  background: var(--ink-900); border: 1px solid var(--ink-600);
+  /* single line that scrolls to keep the NEWEST characters + caret in view.
+     (No text-overflow:ellipsis — that would hide exactly what the user is
+     typing; app.js scrolls this to the end after every keystroke instead.) */
+  overflow-x: hidden; overflow-y: hidden; white-space: nowrap;
+}
+.say-text .caret { display:inline-block; width:2px; height:1.1em; background:var(--teal);
+  margin-left:2px; animation: blink 1s step-start infinite; vertical-align:middle; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* Suggestion chips */
+.suggests { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+
+/* Generic large target used everywhere clicks happen */
+.target {
+  position: relative; cursor: pointer; user-select: none;
+  background: var(--ink-700); color: var(--text);
+  border: 1px solid var(--ink-600); border-radius: var(--r-md);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 20px; font-family: inherit;
+  transition: background .12s, border-color .12s, transform .06s;
+}
+.target:hover, .target.hot { background: #313c4b; border-color: var(--teal-dim); }
+.target:active { transform: translateY(1px); }
+.target.primary { background: var(--teal-dim); border-color: var(--teal); color: #eafffb; }
+.target.warn { background: #5a1f1f; border-color: var(--danger); }
+
+.suggests .target { padding: 12px 18px; min-height: 52px; }
+.suggests .kind { color: var(--teal); font-size:13px; margin-right:8px; }
+
+/* Keyboard */
+.kb { display: grid; gap: 10px; }
+.kb .row { display: grid; grid-template-columns: repeat(10, 1fr); gap: 10px; }
+.kb .row.mid { grid-template-columns: repeat(9, 1fr); padding: 0 5%; }
+.kb .row.low { grid-template-columns: 1.5fr repeat(7, 1fr) 1.5fr; }
+.key { height: 66px; font-size: 24px; }
+.key.wide { font-size: 18px; }
+
+/* Quick phrases */
+.phrases { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 16px; }
+.phrase { min-height: 76px; padding: 10px 14px; text-align: center; font-size: 19px; }
+.phrase.urgent { background: #5a1f1f; border-color: var(--danger); color: #ffe3e3; }
+
+/* Tabs to switch board / settings */
+.tabs { display:flex; gap:10px; }
+.tab { padding: 10px 16px; min-height: 44px; font-size: 16px; }
+.tab.active { background: var(--teal-dim); border-color: var(--teal); color:#eafffb; }
+
+/* ---------- The gaze cursor + dwell ring ---------- */
+#cursor {
+  /* z-index 85 sits ABOVE overlays (z-index 80) so the pointer stays visible on
+     the tutorial/start cards a hands-free user must dwell to advance; still below
+     the calibration dot (z-index 90), where the cursor isn't rendered anyway. */
+  position: fixed; z-index: 85; left: 0; top: 0; width: 54px; height: 54px;
+  margin: -27px 0 0 -27px; pointer-events: none; will-change: transform;
+}
+#cursor .core { position:absolute; inset:21px; border-radius:50%;
+  background: var(--teal); box-shadow: 0 0 16px var(--teal); }
+#cursor svg { position:absolute; inset:0; transform: rotate(-90deg); }
+#cursor .ring-bg { fill:none; stroke: rgba(255,255,255,0.18); stroke-width:5; }
+#cursor .ring-fg { fill:none; stroke: var(--amber); stroke-width:5; stroke-linecap:round;
+  filter: drop-shadow(0 0 6px var(--amber)); transition: stroke-dashoffset .05s linear; }
+#cursor.hidden { display:none; }
+
+/* trailing "glide" comet */
+.trail-dot { position: fixed; z-index: 59; width: 8px; height: 8px; margin:-4px 0 0 -4px;
+  border-radius: 50%; background: var(--teal); pointer-events: none; }
+
+/* ---------- Hands-free edge-scroll affordance ---------- */
+/* A pill that appears when the cursor rests at a scroll edge; it brightens to
+   teal ("active") once the short arm delay passes and the view is scrolling. */
+.edge-scroll {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 38;
+  padding: 7px 22px; border-radius: 999px; white-space: nowrap;
+  background: rgba(21,26,34,0.92); border: 1px solid var(--ink-600);
+  color: var(--muted); font-size: 16px; letter-spacing: .02em;
+  opacity: 0; pointer-events: none;
+  transition: opacity .18s ease, background .18s ease, color .18s ease, border-color .18s ease;
+}
+.edge-scroll.top { top: 72px; }        /* just under the 64px topbar */
+.edge-scroll.bottom { bottom: 16px; }
+.edge-scroll.show { opacity: .9; }
+.edge-scroll.active { background: var(--teal-dim); border-color: var(--teal); color: #eafffb; }
+
+/* ---------- Overlays ---------- */
+.overlay {
+  position: fixed; inset: 0; z-index: 80; display: flex; align-items: center;
+  justify-content: center; padding: 24px;
+  background: radial-gradient(1200px 800px at 50% -10%, rgba(56,224,200,0.10), transparent),
+              rgba(9,11,15,0.92); backdrop-filter: blur(4px);
+  /* On short / heavily-zoomed viewports (low-vision users routinely run 150–200%
+     zoom) a tall card would otherwise be clipped symmetrically by flex-centering
+     with no way to reach its buttons. Let the overlay scroll as a floor. */
+  overflow-y: auto; overscroll-behavior: contain;
+}
+.overlay.hidden { display: none; }
+.card {
+  max-width: 560px; width: 100%; background: var(--ink-800);
+  border: 1px solid var(--ink-600); border-radius: var(--r-lg); padding: 32px;
+  text-align: center;
+  /* cap to the viewport and scroll internally so the primary actions (Start /
+     Watch demo / Retry) are always reachable, mirroring the Settings fix. */
+  max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain;
+}
+.card h1 { font-size: 32px; margin: 0 0 6px; }
+.card p { color: var(--muted); margin: 8px 0 22px; }
+.card .btns { display: flex; flex-direction: column; gap: 12px; }
+.card .target { padding: 16px; min-height: 60px; font-size: 19px; }
+.overlay-link { display: inline-block; margin-top: 16px; color: var(--teal);
+  text-decoration: none; font-size: 15px; }
+.overlay-link:hover { text-decoration: underline; }
+
+.spinner { width: 34px; height: 34px; border-radius: 50%;
+  border: 4px solid var(--ink-600); border-top-color: var(--teal);
+  animation: spin 0.9s linear infinite; margin: 6px auto 0; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Calibration target — a dot ringed by a progress fill (drives via --p 0..1) */
+.calib-target {
+  position: fixed; z-index: 90; width: 84px; height: 84px; margin:-42px 0 0 -42px;
+  border-radius: 50%; display:flex; align-items:center; justify-content:center;
+  transition: left .12s ease, top .12s ease;
+}
+.calib-target::after { content:""; width:14px; height:14px; border-radius:50%;
+  background: var(--amber); box-shadow: 0 0 18px var(--amber); z-index:2; }
+.calib-target.hidden { display:none; }
+.calib-ring {
+  position:absolute; inset:0; border-radius:50%; --p:0;
+  background: conic-gradient(var(--amber) calc(var(--p) * 360deg), rgba(255,255,255,0.12) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
+          mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #000 calc(100% - 7px));
+  box-shadow: 0 0 24px rgba(255,176,32,0.35);
+}
+
+/* Settings */
+.setting { display: grid; grid-template-columns: 160px 1fr 60px; align-items: center;
+  gap: 14px; margin: 14px 0; text-align: left; }
+.setting label { color: var(--text); font-size: 17px; }
+input[type=range] { width: 100%; height: 40px; accent-color: var(--teal); }
+.setting .val { text-align: right; color: var(--teal); font-variant-numeric: tabular-nums; }
+.switch-row { display:flex; align-items:center; justify-content:space-between;
+  padding: 12px 0; border-top: 1px solid var(--ink-600); }
+
+/* ---------- HUD (signal quality + fps) ---------- */
+.hud { display:flex; gap:14px; margin-left:12px; font-size:13px; color:var(--muted);
+  font-variant-numeric: tabular-nums; }
+.hud[aria-hidden="true"] { display:none; }
+.hud-item { display:flex; align-items:center; gap:6px; }
+.hud-k { text-transform:uppercase; letter-spacing:.08em; font-size:11px; opacity:.7; }
+.hud b { color:var(--text); }
+.hud b.q-good { color:var(--teal); } .hud b.q-weak { color:var(--amber); }
+.hud b.q-lost { color:var(--danger); } .hud b.q-demo { color:var(--amber); }
+
+/* ---------- Category tabs (board switcher) ---------- */
+.cats { display:flex; gap:10px; margin-bottom:14px; flex-wrap:wrap; }
+.cats .cat { padding:10px 18px; min-height:48px; font-size:17px; }
+.cats .cat.active { background: var(--teal-dim); border-color: var(--teal); color:#eafffb; }
+
+/* ---------- Phrase grid (categorized boards) ---------- */
+.phrase-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+.phrase-grid .phrase { min-height:96px; padding:12px 16px; text-align:center; font-size:20px; }
+.phrase-grid .phrase.urgent { background:#5a1f1f; border-color:var(--danger); color:#ffe3e3; }
+@media (max-width: 1024px){ .phrase-grid { grid-template-columns:repeat(3,1fr); } }
+
+/* placeholder text in the say-bar */
+.say-text .placeholder { color: var(--muted); }
+
+/* ---------- Switch-scanning ---------- */
+.scan-select {
+  display:block; width:100%; margin-top:16px; min-height:64px; font-size:20px;
+  background: var(--teal-dim); border:1px solid var(--teal); color:#eafffb;
+  border-radius: var(--r-md); cursor:pointer; font-family:inherit;
+}
+/* the auto-scan highlight: a whole row, then a single cell */
+.scan-row { outline:3px solid var(--teal); outline-offset:2px;
+  box-shadow:0 0 0 3px rgba(56,224,200,0.25); }
+.scan-cell { outline:4px solid var(--amber); outline-offset:2px;
+  box-shadow:0 0 22px rgba(255,176,32,0.6); background:#313c4b !important; }
+
+/* ---------- Voice picker ---------- */
+.voice-row { display:grid; grid-template-columns:120px 1fr auto; align-items:center;
+  gap:14px; padding:14px 0; border-top:1px solid var(--ink-600); text-align:left; }
+.voice-pick { display:flex; align-items:center; gap:12px; }
+.voice-pick .target { min-width:52px; min-height:48px; padding:8px 14px; font-size:22px; }
+.voice-name { flex:1; text-align:center; color:var(--text); font-size:17px;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.voice-row .target#voiceTest { min-height:48px; padding:10px 18px; font-size:16px; }
+
+/* ---------- History (recent sentences) ---------- */
+.history { display:flex; flex-wrap:wrap; gap:10px; }
+.history .hist-item { padding:12px 16px; min-height:52px; font-size:17px;
+  max-width:100%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ---------- Tutorial ---------- */
+.card.tut { text-align:center; }
+.tut-body { color:var(--muted); font-size:19px; min-height:84px; display:flex;
+  align-items:center; justify-content:center; padding:6px 8px 14px; }
+.tut-dots { display:flex; gap:8px; justify-content:center; margin-top:16px; }
+.tut-dots .dot { width:9px; height:9px; border-radius:50%; background:var(--ink-600); }
+.tut-dots .dot.on { background:var(--teal); box-shadow:0 0 8px var(--teal); }
+
+/* ---------- Calibration overlay copy ---------- */
+.calib-inner { position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:flex-start; padding-top:12vh; text-align:center;
+  pointer-events:none; }
+.calib-instr { font-size:22px; max-width:32ch; color:var(--text);
+  font-family:'Bricolage Grotesque',sans-serif; }
+.calib-count { margin-top:10px; color:var(--teal); font-size:18px;
+  font-variant-numeric:tabular-nums; }
+.calib-inner .target { pointer-events:auto; }
+
+/* Focus visibility for keyboard users (accessibility floor) */
+:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+
+/* Small screens: the control surface needs room; guide to desktop. */
+.too-small { display: none; }
+@media (max-width: 760px) {
+  .stage, .topbar { display: none; }
+  /* Also hide the overlays, cursor and preview — otherwise the start overlay
+     paints OVER the "larger screen" message and a tap on Start drops the user
+     onto a display:none stage (a blank app with no topbar to escape). */
+  .overlay, #cursor, .cam-preview, .calib-target { display: none !important; }
+  .too-small { display: flex; position: fixed; inset: 0; z-index: 100;
+    align-items: center; justify-content: center; padding: 28px; text-align: center; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}

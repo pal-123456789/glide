@@ -1,0 +1,19 @@
+# Glide is a zero-dependency static site — very little to ignore.
+# NOTE: dist/*.bundle.js is intentionally COMMITTED (it makes file:// work and
+# is what GitHub Pages serves), so it is NOT ignored here.
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# Node (only if tooling is ever added; there are no deps today)
+node_modules/
+npm-debug.log*
+
+# Local scratch
+*.log
+tmp/
+.cache/

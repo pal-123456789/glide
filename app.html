@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Glide — hands-free control</title>
+  <meta name="description" content="Control your computer and speak using only your head and a webcam. Private, on-device, free." />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#0E1116" />
+  <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <!-- Top status bar -->
+  <header class="topbar" role="banner">
+    <span class="brand"><span class="dot" aria-hidden="true"></span> Glide</span>
+    <span id="statusChip" class="status-chip"><span class="led" aria-hidden="true"></span><span id="statusText">Starting…</span></span>
+    <span class="hud" id="hud" aria-hidden="true">
+      <span class="hud-item" title="Tracking quality"><span class="hud-k">signal</span> <b id="hudQuality">—</b></span>
+      <span class="hud-item" title="Frames per second"><span class="hud-k">fps</span> <b id="hudFps">—</b></span>
+    </span>
+    <span class="spacer"></span>
+    <button class="target tab" id="btnHome" data-noclickthrough aria-label="Back to start screen" title="Back to start (switch camera / demo)">⌂ Home</button>
+    <button class="target tab" id="btnBoard" data-noclickthrough>Board</button>
+    <button class="target tab" id="btnSettings" data-noclickthrough>Settings</button>
+    <button class="target tab" id="btnRecalib" data-noclickthrough>Recalibrate</button>
+    <button class="target tab warn" id="btnStop" data-noclickthrough>Pause</button>
+  </header>
+
+  <!-- Main stage -->
+  <main class="stage" id="stage">
+    <!-- BOARD view -->
+    <section id="boardView">
+      <div class="say-bar">
+        <div class="say-text" id="sayText" aria-live="polite"><span class="placeholder hint">Your words appear here…</span><span class="caret" aria-hidden="true"></span></div>
+        <button class="target" id="btnBack" style="min-width:96px" data-noclickthrough>⌫ word</button>
+        <button class="target primary" id="btnSpeak" style="min-width:120px" data-noclickthrough>Speak</button>
+        <button class="target" id="btnClear" style="min-width:90px" data-noclickthrough>Clear</button>
+      </div>
+
+      <!-- category tabs: switch boards hands-free -->
+      <div class="cats" id="cats" aria-label="Boards"></div>
+
+      <!-- word suggestions (keyboard board only) -->
+      <div class="suggests" id="suggests" aria-label="Word suggestions"></div>
+
+      <!-- board content: keyboard OR a phrase grid, swapped in JS -->
+      <div class="panel" id="boardPanel">
+        <div class="kb" id="keyboard" aria-label="On-screen keyboard"></div>
+        <div class="phrase-grid" id="phraseGrid" style="display:none" aria-label="Phrases"></div>
+      </div>
+
+      <!-- switch-scanning selector (only visible in scan mode) -->
+      <button class="scan-select" id="scanSelect" style="display:none" data-noclickthrough>
+        Rest here (or blink) to select
+      </button>
+    </section>
+
+    <!-- SETTINGS view -->
+    <section id="settingsView" class="panel settings" style="display:none;">
+      <h2 style="margin-top:0">Settings</h2>
+
+      <div class="setting">
+        <label for="sSens">Pointer speed</label>
+        <input type="range" id="sSens" min="0.6" max="2.6" step="0.1" value="1.4" data-noclickthrough />
+        <span class="val" id="sSensVal">1.4</span>
+      </div>
+      <div class="setting">
+        <label for="sDwell">Dwell time</label>
+        <input type="range" id="sDwell" min="500" max="2000" step="50" value="900" data-noclickthrough />
+        <span class="val" id="sDwellVal">0.9s</span>
+      </div>
+      <div class="setting">
+        <label for="sSmooth">Smoothing</label>
+        <input type="range" id="sSmooth" min="0.3" max="2.0" step="0.1" value="1.0" data-noclickthrough />
+        <span class="val" id="sSmoothVal">1.0</span>
+      </div>
+      <div class="setting">
+        <label for="sScan">Scan speed</label>
+        <input type="range" id="sScan" min="600" max="2400" step="100" value="1200" data-noclickthrough />
+        <span class="val" id="sScanVal">1.2s</span>
+      </div>
+
+      <div class="switch-row">
+        <span>Blink to click <span class="hint">(a long, deliberate blink)</span></span>
+        <button class="target tab" id="tglBlink" data-noclickthrough>On</button>
+      </div>
+      <div class="switch-row">
+        <span>Head gestures <span class="hint">(open mouth = speak, brows up = delete word)</span></span>
+        <button class="target tab" id="tglGestures" data-noclickthrough>On</button>
+      </div>
+      <div class="switch-row">
+        <span>Switch-scanning mode <span class="hint">(step + select with one signal)</span></span>
+        <button class="target tab" id="tglScan" data-noclickthrough>Off</button>
+      </div>
+      <div class="switch-row">
+        <span>Voice <span class="hint">(text-to-speech)</span></span>
+        <button class="target tab" id="tglVoice" data-noclickthrough>On</button>
+      </div>
+
+      <!-- voice picker -->
+      <div class="voice-row">
+        <span>Voice</span>
+        <div class="voice-pick">
+          <button class="target" id="voicePrev" data-noclickthrough>‹</button>
+          <span class="voice-name" id="voiceName">System default</span>
+          <button class="target" id="voiceNext" data-noclickthrough>›</button>
+        </div>
+        <button class="target" id="voiceTest" data-noclickthrough>Test</button>
+      </div>
+      <div class="setting">
+        <label for="sRate">Speaking rate</label>
+        <input type="range" id="sRate" min="0.6" max="1.6" step="0.1" value="1.0" data-noclickthrough />
+        <span class="val" id="sRateVal">1.0</span>
+      </div>
+      <div class="setting">
+        <label for="sPitch">Pitch</label>
+        <input type="range" id="sPitch" min="0.6" max="1.6" step="0.1" value="1.0" data-noclickthrough />
+        <span class="val" id="sPitchVal">1.0</span>
+      </div>
+
+      <!-- recent sentences (re-speak with a dwell) -->
+      <h3 style="margin:22px 0 8px">Recent</h3>
+      <div class="history" id="history" aria-label="Recent sentences"><span class="hint">Sentences you speak will appear here.</span></div>
+
+      <p class="hint" style="margin-top:18px">Everything here — your settings, calibration, and word history — stays on this device. Your camera feed is never uploaded or recorded.</p>
+    </section>
+  </main>
+
+  <!-- Hands-free scroll affordances (shown when the cursor rests at a scroll edge) -->
+  <div class="edge-scroll top" id="edgeUp" aria-hidden="true">▲ scroll up</div>
+  <div class="edge-scroll bottom" id="edgeDown" aria-hidden="true">▼ scroll down</div>
+
+  <!-- Camera preview -->
+  <div class="cam-preview hidden" id="camPreview">
+    <video id="video" playsinline muted></video>
+    <div class="track-dot" id="trackDot" aria-hidden="true"></div>
+  </div>
+
+  <!-- Gaze cursor with dwell ring -->
+  <div id="cursor" class="hidden" aria-hidden="true">
+    <svg viewBox="0 0 54 54" width="54" height="54">
+      <circle class="ring-bg" cx="27" cy="27" r="23"></circle>
+      <circle class="ring-fg" id="ringFg" cx="27" cy="27" r="23"></circle>
+    </svg>
+    <div class="core"></div>
+  </div>
+
+  <!-- START overlay -->
+  <div class="overlay" id="startOverlay">
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="startTitle">
+      <h1 id="startTitle">Glide</h1>
+      <p>Move the pointer with your head. Rest on a button to click. Speak with a tap.</p>
+      <div class="btns">
+        <button class="target primary" id="startCamera">Start with my camera</button>
+        <button class="target" id="startDemo">Watch the demo (no camera)</button>
+      </div>
+      <p class="hint" style="margin-top:18px">Everything runs on your device. Your camera feed is never uploaded.</p>
+      <a class="overlay-link" href="index.html">← Back to the Glide home page</a>
+    </div>
+  </div>
+
+  <!-- LOADING overlay -->
+  <div class="overlay hidden" id="loadOverlay">
+    <div class="card" role="dialog" aria-modal="true" aria-labelledby="loadTitle" aria-busy="true">
+      <h1 id="loadTitle">Getting ready…</h1>
+      <p id="loadMsg">Loading the on-device face model.</p>
+      <div class="spinner" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <!-- ERROR overlay -->
+  <div class="overlay hidden" id="errOverlay">
+    <div class="card" role="alertdialog" aria-modal="true" aria-labelledby="errTitle" aria-describedby="errMsg">
+      <h1 id="errTitle">Camera unavailable</h1>
+      <p id="errMsg">We couldn't reach a camera. You can still explore everything in demo mode.</p>
+      <div class="btns">
+        <button class="target primary" id="errDemo">Watch the demo instead</button>
+        <button class="target" id="errRetry">Try the camera again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CALIBRATION overlay (9-point) -->
+  <div class="overlay hidden" id="calibOverlay">
+    <div class="calib-inner">
+      <p class="calib-instr" id="calibInstr">Follow the dot with your head and hold still on each point. A long blink skips.</p>
+      <div class="calib-count" id="calibCount"></div>
+      <!-- bottom-LEFT so the final target (bottom-right, 0.9/0.9) never covers it -->
+      <button class="target" id="calibSkip" data-noclickthrough style="position:absolute;bottom:24px;left:24px">Skip</button>
+    </div>
+  </div>
+  <div class="calib-target hidden" id="calibTarget" aria-hidden="true"><span class="calib-ring" id="calibRing"></span></div>
+
+  <!-- TUTORIAL overlay -->
+  <div class="overlay hidden" id="tutOverlay">
+    <div class="card tut" role="dialog" aria-modal="true" aria-labelledby="tutTitle" aria-describedby="tutBody">
+      <h1 id="tutTitle">How Glide works</h1>
+      <div class="tut-body" id="tutBody"></div>
+      <div class="btns"><button class="target primary" id="tutNext">Next</button></div>
+      <div class="tut-dots" id="tutDots" aria-hidden="true"></div>
+    </div>
+  </div>
+
+  <!-- small-screen guidance -->
+  <div class="too-small">
+    <div class="card">
+      <h1>Best on a larger screen</h1>
+      <p>Glide uses head movement to reach a full keyboard, so it needs a tablet or computer display. Open this link on a laptop or desktop to try it.</p>
+    </div>
+  </div>
+
+  <!-- Bundled classic script (built from src/*.js by `node build.js`). Using the
+       bundle instead of `<script type="module">` means the app also runs when the
+       file is opened directly (file://), where ES-module imports are blocked. -->
+  <script src="dist/app.bundle.js"></script>
+</body>
+</html>

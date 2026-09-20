@@ -1,0 +1,14 @@
+{
+  "name": "Glide — hands-free control",
+  "short_name": "Glide",
+  "description": "Control your computer and speak using only your head and a webcam. Private, on-device, free.",
+  "start_url": "./app.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0E1116",
+  "theme_color": "#0E1116",
+  "icons": [
+    { "src": "assets/icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

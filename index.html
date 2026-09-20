@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Glide — control your computer with your head</title>
+  <meta name="description" content="Glide turns any webcam into hands-free control: move the pointer with your head, click by resting, and speak with a tap. Private, on-device, and free." />
+  <meta name="theme-color" content="#0E1116" />
+  <link rel="icon" href="assets/icons/icon.svg" type="image/svg+xml" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta property="og:title" content="Glide — hands-free computer control" />
+  <meta property="og:description" content="A $4,000 eye-tracker, replaced by the webcam you already own. Private, on-device, free." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="landing.css" />
+
+  <!-- Three.js r128 (UMD global THREE) for the 3D face-mesh hero. The scroll
+       "film" is driven by native CSS sticky + scroll math (see src/scroll.js),
+       so there is NO GSAP dependency. If Three.js fails to load, the page
+       degrades to a fully static, readable scroll. -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <nav class="nav" id="nav">
+    <span class="brand"><span class="dot" aria-hidden="true"></span> Glide</span>
+    <span class="spacer"></span>
+    <a class="navlink" href="#problem">The cost wall</a>
+    <a class="navlink" href="#how">How it works</a>
+    <a class="navlink" href="#build">How it's built</a>
+    <a class="btn primary" href="app.html">Launch Glide</a>
+  </nav>
+
+  <!-- ============================ HERO (sticky scroll-film) ============================ -->
+  <!-- .hero-track is a tall runway; .hero sticks to the top of the viewport while
+       the runway scrolls past, and scroll.js turns that travel into progress. -->
+  <div class="hero-track" id="heroTrack">
+  <header class="hero" id="hero">
+    <canvas id="hero3d" aria-hidden="true"></canvas>
+
+    <!-- opening title — fades out as the scrub begins -->
+    <div class="hero-lead">
+      <h1>Your head<br>is the mouse.</h1>
+      <p class="lede">Move the pointer by moving your head. Click by resting on a button. Speak with a tap. All you need is the webcam you already own.</p>
+      <div class="cta-row">
+        <a class="btn primary big" href="app.html">Try it with your camera</a>
+        <a class="btn big" href="app.html#demo">Watch the demo</a>
+      </div>
+      <div class="trust">
+        <span><b>100%</b> on your device</span>
+        <span><b>$0</b> forever</span>
+        <span><b>No</b> sign-up</span>
+      </div>
+    </div>
+
+    <!-- three chapter captions cross-fade as you scrub the pinned hero -->
+    <div class="chapters" aria-hidden="true">
+      <figure class="chapter">
+        <span class="ch-index">Move</span>
+        <p>Turn your head and the pointer follows. A smoothing filter cancels the tremor, so it feels calm — not twitchy.</p>
+      </figure>
+      <figure class="chapter">
+        <span class="ch-index">Hold</span>
+        <p>Rest on a target and the ring fills. When it completes, Glide clicks. A long, deliberate blink works too.</p>
+      </figure>
+      <figure class="chapter">
+        <span class="ch-index">Speak</span>
+        <p>Build a sentence on the board and say it aloud. Glide learns the words you reach for most.</p>
+      </figure>
+    </div>
+
+    <!-- fallback interactive dwell target (only when the 3D scene is unavailable) -->
+    <div class="tryzone">
+      <div class="dwell-wrap">
+        <div class="dwell-hit" id="dwellHit" role="button" tabindex="0" aria-label="Rest your pointer here to feel a dwell-click">
+          <span id="dwellLabel">Rest your pointer here</span>
+        </div>
+        <svg class="dwell-svg" viewBox="0 0 260 260" aria-hidden="true">
+          <circle class="dwell-bg" cx="130" cy="130" r="120"></circle>
+          <circle class="dwell-fg" id="dwellFg" cx="130" cy="130" r="120"></circle>
+        </svg>
+      </div>
+      <span class="cap">No clicking. Just hover and hold — that's how Glide works.</span>
+    </div>
+
+    <div class="scroll-cue" aria-hidden="true"><span></span>scroll</div>
+  </header>
+  </div><!-- /.hero-track -->
+
+  <!-- ============================ PROBLEM ============================ -->
+  <section id="problem" class="problem">
+    <div class="wrap reveal">
+      <p class="eyebrow">The cost wall</p>
+      <h2 class="sec">Freedom shouldn't cost four thousand dollars.</h2>
+      <div class="cost">
+        <div class="fig" id="costFig">$4,000</div>
+        <p class="sec-lead">Millions of people living with ALS, spinal-cord injury, cerebral palsy, or severe RSI can't use a standard mouse and keyboard. The dedicated eye-gaze hardware that would give them back a computer is locked behind a price most families can't reach — and it isn't covered everywhere. The camera in almost every laptop can already do the core of the job. It just needed the software.</p>
+      </div>
+      <div class="cost-flip">
+        <span>The webcam you already own</span>
+        <b>$0</b>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ HOW IT WORKS ============================ -->
+  <section id="how" class="how">
+    <div class="wrap">
+      <p class="eyebrow reveal">How it works</p>
+      <h2 class="sec reveal">Three movements. Nothing to hold.</h2>
+      <div class="mechanics">
+        <article class="mech reveal">
+          <div class="mech-art" data-art="move" aria-hidden="true"><span class="m-dot"></span></div>
+          <h3>Move</h3>
+          <p>The webcam reads the pose of your head 30 times a second. A One-Euro filter smooths the signal — steady when you hold still, responsive when you move — so the pointer glides instead of jittering.</p>
+        </article>
+        <article class="mech reveal">
+          <div class="mech-art" data-art="hold" aria-hidden="true"><svg viewBox="0 0 120 120"><circle class="r-bg" cx="60" cy="60" r="46"/><circle class="r-fg" cx="60" cy="60" r="46"/></svg></div>
+          <h3>Hold</h3>
+          <p>Resting the pointer on a button fills a ring. Complete it and Glide clicks — no physical press required. Prefer eyes to neck? A long, deliberate blink triggers the same click.</p>
+        </article>
+        <article class="mech reveal">
+          <div class="mech-art" data-art="speak" aria-hidden="true"><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span></div>
+          <h3>Speak</h3>
+          <p>A full keyboard and category boards with word prediction let anyone build a sentence and say it out loud. The prediction adapts to the words you actually use, so common phrases get faster over time.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ WHO IT'S FOR ============================ -->
+  <section id="who" class="who-sec">
+    <div class="wrap">
+      <p class="eyebrow reveal">Who it's for</p>
+      <h2 class="sec reveal">Built for the people the mouse left behind.</h2>
+      <div class="who">
+        <div class="row reveal"><b>Motor-impairment communities</b><p>ALS, spinal-cord injury, cerebral palsy, muscular dystrophy — anyone who can move their head but not a mouse.</p></div>
+        <div class="row reveal"><b>Temporary injury and recovery</b><p>A broken wrist or a severe RSI flare shouldn't lock you out of your own computer for weeks.</p></div>
+        <div class="row reveal"><b>People who can't speak</b><p>The communication board gives a voice to non-verbal users without buying a separate AAC device.</p></div>
+        <div class="row reveal"><b>Clinics and schools on a budget</b><p>Free software on hardware they already own, instead of one shared four-thousand-dollar unit.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ HOW IT'S BUILT ============================ -->
+  <section id="build" class="build">
+    <div class="wrap">
+      <p class="eyebrow reveal">How it's built</p>
+      <h2 class="sec reveal">On-device, offline, and honest about it.</h2>
+      <p class="sec-lead reveal">No servers, no accounts, no video leaving the room. Everything that watches you runs inside your own browser tab.</p>
+      <div class="specs">
+        <div class="spec reveal"><b>Local face tracking</b><p>MediaPipe FaceLandmarker runs in-browser via WebAssembly. The video frames are read and discarded on your device — never uploaded, never recorded.</p></div>
+        <div class="spec reveal"><b>Works offline</b><p>Installs as a PWA and caches itself on first load. After that it opens and runs with no internet at all.</p></div>
+        <div class="spec reveal"><b>Precise by design</b><p>A 9-point affine calibration maps your head's range to the screen, and the One-Euro filter keeps the cursor stable at rest.</p></div>
+        <div class="spec reveal"><b>Reaches everyone</b><p>Dwell, blink, head gestures, and single-switch scanning — so it fits a range of abilities, not just one.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================ PRIVACY ============================ -->
+  <section id="privacy" class="privacy">
+    <div class="wrap reveal">
+      <h2 class="sec">Your face never leaves your device.</h2>
+      <p class="sec-lead">Assistive tech watches you all day. That data should never become someone else's to hold. Glide is built so there's nothing to hold in the first place — no upload, no account, no analytics pointed at your camera. It's open and inspectable, and it keeps working when the internet doesn't.</p>
+    </div>
+  </section>
+
+  <!-- ============================ FINAL CTA ============================ -->
+  <section class="final">
+    <div class="wrap reveal">
+      <h2 class="sec">Give it two minutes and your webcam.</h2>
+      <p class="sec-lead">No camera handy? The demo drives itself and shows every feature.</p>
+      <a class="btn primary big" href="app.html">Launch Glide</a>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <span>Glide — hands-free computer control. Built for HackDay 1.0.</span>
+      <span>Runs on your device. Works offline. Free to use.</span>
+    </div>
+  </footer>
+
+  <script src="src/landing.js"></script>
+  <!-- Bundled classic script (built from src/*.js by `node build.js`) so the
+       scroll story + 3D hero also run when opened directly over file://. -->
+  <script src="dist/landing.bundle.js"></script>
+</body>
+</html>
