@@ -1219,8 +1219,12 @@ __glideDef('app', function(__glideReq){
     const gated = scope !== null;   // paused or an overlay is up
   
     if (state.settings.scanMode) {
-      // In scan mode the pointer isn't used to aim; a blink or a dwell on the
-      // SELECT bar is the single "switch". We still show the cursor for feedback.
+      // Scan mode adds the auto-stepping scanner + a blink/select-bar switch for
+      // users who can't aim. But if someone CAN rest the pointer on a key, dwelling
+      // on it should still type it directly — otherwise the ring visibly fills on
+      // 'v' yet nothing happens (exactly the bug reported). So here dwell activates
+      // whatever target it's resting on, and the scanner/blink remain as a parallel
+      // path for those who need it.
       renderCursor(p.x, p.y);
       cursorX = p.x; cursorY = p.y;
       const el = elementAtCursor(p.x, p.y, scope);
@@ -1230,9 +1234,7 @@ __glideDef('app', function(__glideReq){
         const c = anchorFor(el);
         const d = dwell.update(c.x, c.y, t);
         setRing(d.progress);
-        // Resume (btnStop) is dwell-selectable even in scan mode so a paused,
-        // hands-free user always has a way back.
-        if (d.click && (el.id === 'scanSelect' || el.id === 'btnStop')) activate(el);
+        if (d.click) activate(el);
       }
     } else {
       driveCursorTo(p.x, p.y, t);
