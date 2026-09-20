@@ -5,8 +5,8 @@
 //    online load populates the cache and every load after works offline.
 // The camera stream is never touched here — it never leaves the page.
 
-const SHELL = 'glide-shell-v5';
-const RUNTIME = 'glide-runtime-v5';
+const SHELL = 'glide-shell-v6';
+const RUNTIME = 'glide-runtime-v6';
 
 const SHELL_FILES = [
   './',
@@ -35,8 +35,16 @@ const SHELL_FILES = [
 ];
 
 self.addEventListener('install', (e) => {
+  // Cache each shell file individually and tolerate the odd failure/redirect, so
+  // one hiccup can't abort the whole install (addAll is all-or-nothing).
   e.waitUntil(
-    caches.open(SHELL).then((c) => c.addAll(SHELL_FILES)).then(() => self.skipWaiting())
+    caches.open(SHELL).then((c) =>
+      Promise.all(SHELL_FILES.map((f) =>
+        fetch(f, { cache: 'no-cache', redirect: 'follow' })
+          .then((res) => { if (res && res.ok && !res.redirected) return c.put(f, res); })
+          .catch(() => {})
+      ))
+    ).then(() => self.skipWaiting())
   );
 });
 
@@ -76,11 +84,23 @@ self.addEventListener('fetch', (e) => {
   // Same-origin app shell -> cache-first, fall back to network.
   if (url.origin === self.location.origin) {
     e.respondWith(
-      caches.match(request).then((hit) => hit || fetch(request).then((res) => {
-        const copy = res.clone();
-        caches.open(SHELL).then((c) => c.put(request, copy)).catch(() => {});
-        return res;
-      }).catch(() => caches.match('./app.html')))
+      caches.match(request).then((hit) => {
+        if (hit) return hit;
+        return fetch(request).then(async (res) => {
+          // A *redirected* response (e.g. host-level clean-URL/trailing-slash
+          // redirects) can't be returned to a navigation whose redirect mode
+          // isn't "follow" — the browser turns it into a network error. Rebuild
+          // it as a plain, non-redirected response so navigations always succeed.
+          const safe = res && res.redirected
+            ? new Response(await res.blob(), { status: res.status, statusText: res.statusText, headers: res.headers })
+            : res;
+          if (safe && safe.ok && safe.type === 'basic') {
+            const copy = safe.clone();
+            caches.open(SHELL).then((c) => c.put(request, copy)).catch(() => {});
+          }
+          return safe;
+        }).catch(() => caches.match('./app.html'));
+      })
     );
   }
 });
