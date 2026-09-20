@@ -5,8 +5,8 @@
 //    online load populates the cache and every load after works offline.
 // The camera stream is never touched here — it never leaves the page.
 
-const SHELL = 'glide-shell-v6';
-const RUNTIME = 'glide-runtime-v6';
+const SHELL = 'glide-shell-v7';
+const RUNTIME = 'glide-runtime-v7';
 
 const SHELL_FILES = [
   './',

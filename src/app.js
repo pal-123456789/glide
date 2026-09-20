@@ -92,11 +92,15 @@ function handleSignal(sig) {
     cursorX = p.x; cursorY = p.y;
     const el = elementAtCursor(p.x, p.y, scope);
     setHot(el);
-    const d = dwell.update(p.x, p.y, t);
-    setRing(d.progress);
-    // Resume (btnStop) is dwell-selectable even in scan mode so a paused,
-    // hands-free user always has a way back.
-    if (d.click && el && (el.id === 'scanSelect' || el.id === 'btnStop')) activate(el);
+    if (!el) { setRing(0); dwell.reset(); }
+    else {
+      const c = anchorFor(el);
+      const d = dwell.update(c.x, c.y, t);
+      setRing(d.progress);
+      // Resume (btnStop) is dwell-selectable even in scan mode so a paused,
+      // hands-free user always has a way back.
+      if (d.click && (el.id === 'scanSelect' || el.id === 'btnStop')) activate(el);
+    }
   } else {
     driveCursorTo(p.x, p.y, t);
   }
@@ -144,10 +148,21 @@ function driveCursorTo(x, y, t) {
   const scrolling = updateEdgeScroll(x, y, t, scope);
   const el = elementAtCursor(x, y, scope);
   setHot(el);
-  const d = dwell.update(x, y, t);
-  if (scrolling) { setRing(0); dwell.reset(); return; }
+  // Only dwell when actually resting on a target. Over empty space the ring must
+  // stay empty (it used to fill anywhere, complete, then click nothing — the "ring
+  // fills but doesn't write" bug). When we ARE on a target, feed the dwell the
+  // target's fixed center, not the jittery pointer, so small head shake can't
+  // reset the fill — the pointer just has to stay near the key, not dead-still.
+  if (scrolling || !el) { setRing(0); dwell.reset(); return; }
+  const c = anchorFor(el);
+  const d = dwell.update(c.x, c.y, t);
   setRing(d.progress);
-  if (d.click && el) activate(el);
+  if (d.click) activate(el);
+}
+// Center of a target's box — the stable point we run the dwell timer against.
+function anchorFor(el) {
+  const r = el.getBoundingClientRect();
+  return { x: r.left + r.width / 2, y: r.top + r.height / 2 };
 }
 
 // ============================ hands-free edge-scroll ============================
@@ -226,6 +241,7 @@ function setRing(progress) {
 }
 
 // ============================ hit-testing & activation ============================
+const SNAP_PX = 46;   // magnetic slack around a target, for imprecise head tracking
 function elementAtCursor(x, y, scope) {
   const stack = document.elementsFromPoint(x, y) || [];
   for (const node of stack) {
@@ -235,7 +251,26 @@ function elementAtCursor(x, y, scope) {
       if (t && (!scope || scope.contains(t))) return t;
     }
   }
-  return null;
+  // Magnetic targeting: head tracking is imprecise, so if the exact point lands
+  // in a gap, snap to the nearest target whose box is within SNAP_PX. This is what
+  // makes low-accuracy tracking usable — you get *near* a key and it locks on,
+  // instead of the pointer sitting forever in the seams between keys.
+  return nearestTarget(x, y, scope);
+}
+function nearestTarget(x, y, scope) {
+  const root = scope || document;
+  const nodes = root.querySelectorAll('.target, .key, .phrase, .cat, .hist-item');
+  let best = null, bestD = SNAP_PX;
+  for (const el of nodes) {
+    if (el.offsetParent === null) continue;      // skip hidden / detached
+    const r = el.getBoundingClientRect();
+    if (r.width === 0 || r.height === 0) continue;
+    const dx = x < r.left ? r.left - x : x > r.right ? x - r.right : 0;
+    const dy = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+    const d = Math.hypot(dx, dy);                // 0 when the point is inside the box
+    if (d < bestD) { bestD = d; best = el; }
+  }
+  return best;
 }
 function setHot(el) {
   if (hotEl === el) return;
